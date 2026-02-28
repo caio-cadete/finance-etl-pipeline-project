@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 
+
 def limpar_nomes_clientes(df):
     """
     Parte 1: Resolve duplicidade de nomes (Ex: Acme vs Acme LTDA)
@@ -10,7 +11,7 @@ def limpar_nomes_clientes(df):
         df['nome_cliente_padrao'] = df['nome_cliente'].str.upper()
 
         # Regex para remover sufixos jurídicos e termos redundantes
-        padroes = r'\b(LTDA|CORP|LTDA\.|LIMITADA|S\.A|S/A|SISTEMAS|SOLUÇÕES|PLUS|DIGITAL|TECH)\b'
+        padroes = r'\b(LTDA|LTDA\.|LIMITADA|S\.A|S/A)\b'
         
         df['nome_cliente_padrao'] = (
             df['nome_cliente_padrao']
@@ -18,6 +19,28 @@ def limpar_nomes_clientes(df):
             .str.replace(r'\s+', ' ', regex=True)
             .str.strip()
         )
+    return df
+
+def padronizar_emails(df):
+    """
+    Garante que o e-mail siga a regra: contato{id}@{nome_limpo}.com
+    Remove espaços, caracteres especiais e coloca em minúsculo.
+    """
+    if all(col in df.columns for col in ['cliente_id', 'nome_cliente_padrao']):
+        # 1. Criamos o "slug" do nome (ex: "Beta Tech" -> "betatech")
+        # Aproveitamos o nome_cliente_padrao que já limpamos antes (sem o LTDA)
+        nome_slug = (
+            df['nome_cliente_padrao']
+            .str.lower()
+            .str.replace(r'\s+', '', regex=True) # Remove espaços
+            .str.normalize('NFKD')               # Remove acentos
+            .str.encode('ascii', errors='ignore')
+            .str.decode('utf-8')
+        )
+
+        # 2. Reconstrói o e-mail para garantir 100% de consistência
+        df['email_padrao'] = "contato" + df['cliente_id'].astype(str) + "@" + nome_slug + ".com"
+        
     return df
 
 def limpar_status_cliente(df):
@@ -58,7 +81,7 @@ def limpar_localidade(df):
                                    .str.decode('utf-8')\
                                    .str.strip().str.title()
 
-    # Estados: Converte nomes longos para siglas e coloca em CAIXA ALTA
+    # Estados: Converte nomes longos para siglas e coloca em CAIXA ALTA para facilitar JOIN com banco de dados
     if 'estado' in df.columns:
         # Primeiro limpa acentos e coloca em Upper para o mapeamento funcionar
         df['estado'] = df['estado'].str.normalize('NFKD')\
@@ -76,24 +99,3 @@ def limpar_localidade(df):
         
     return df
 
-def padronizar_emails(df):
-    """
-    Garante que o e-mail siga a regra: contato{id}@{nome_limpo}.com
-    Remove espaços, caracteres especiais e coloca em minúsculo.
-    """
-    if all(col in df.columns for col in ['cliente_id', 'nome_cliente_padrao']):
-        # 1. Criamos o "slug" do nome (ex: "Beta Tech" -> "betatech")
-        # Aproveitamos o nome_cliente_padrao que já limpamos antes (sem o LTDA)
-        nome_slug = (
-            df['nome_cliente_padrao']
-            .str.lower()
-            .str.replace(r'\s+', '', regex=True) # Remove espaços
-            .str.normalize('NFKD')               # Remove acentos
-            .str.encode('ascii', errors='ignore')
-            .str.decode('utf-8')
-        )
-
-        # 2. Reconstrói o e-mail para garantir 100% de consistência
-        df['email_padrao'] = "contato" + df['cliente_id'].astype(str) + "@" + nome_slug + ".com"
-        
-    return df
