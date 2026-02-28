@@ -1,0 +1,43 @@
+# Definição do Schema para a planilha de Clientes
+clientes:
+  aba: "Sheet1"
+  colunas:
+    cliente_id: "int64"
+    nome_cliente: "object"
+    email: "object"
+    status_cliente: "category"
+    cidade: "object"
+    estado: "object"
+  colunas_data:
+    - data_cadastro
+    - data_desativacao
+
+
+#     # config/schema.yaml
+# clientes:
+#   aba: "Sheet1"
+#   colunas_original:
+#     - cliente_id
+#     - nome_cliente
+#     - email
+#     - status_cliente
+#     - data_cadastro
+#     - data_desativacao
+#     - cidade
+#     - estado
+#   renomear:
+#     cliente_id: id_cliente
+#     nome_cliente: nm_cliente
+#     status_cliente: st_cliente
+#     data_cadastro: dt_cadastro
+#     data_desativacao: dt_desativacao
+#   tipos:
+#     id_cliente: "int64"
+#     nm_cliente: "string"
+#     email: "string"
+#     st_cliente: "category"
+#     cidade: "string"
+#     estado: "string"
+#   colunas_data:
+#     - dt_cadastro
+#     - dt_desativacao
