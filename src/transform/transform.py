@@ -53,7 +53,7 @@ def limpar_status_cliente(df):
 
 def tratar_datas_especificas(df, colunas_data):
     """
-    Parte 1: Resolve o desafio dos 5 formatos de data e o Serial Date do Excel (45259)
+    Padroniza datas (Excel Serial, DD/MM/AAAA e Datetime) para o formato YYYY-MM-DD.
     """
     for col in colunas_data:
         if col in df.columns:
@@ -65,8 +65,13 @@ def tratar_datas_especificas(df, colunas_data):
                 is_numeric[mask_numeric], unit='D', origin='1899-12-30'
             )
             
-            # 2. Converte strings (DD/MM/AAAA, ISO, etc)
+            # 2. Converte strings (DD/MM/AAAA, ISO, Datetime com 00:00:00)
+            # dayfirst=True é essencial para o formato brasileiro
             df[col] = pd.to_datetime(df[col], errors='coerce', dayfirst=True)
+            
+            # 3. NORMALIZAÇÃO FINAL: Remove horas/minutos e deixa apenas a data
+            # Isso resolve o problema de formatos mistos aparecendo no CSV
+            df[col] = df[col].dt.date
             
     return df
 
