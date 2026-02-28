@@ -4,17 +4,16 @@ import re
 
 def limpar_nomes_clientes(df):
     """
-    Parte 1: Resolve duplicidade de nomes (Ex: Acme vs Acme LTDA)
+    Padroniza a coluna 'nome_cliente' removendo sufixos jurídicos e excesso de espaços.
+    A alteração é feita diretamente na coluna original para manter o padrão de auditoria.
     """
     if 'nome_cliente' in df.columns:
-        # Tudo para maiúsculo para comparação justa
-        df['nome_cliente_padrao'] = df['nome_cliente'].str.upper()
-
-        # Regex para remover sufixos jurídicos e termos redundantes
         padroes = r'\b(LTDA|LTDA\.|LIMITADA|S\.A|S/A)\b'
         
-        df['nome_cliente_padrao'] = (
-            df['nome_cliente_padrao']
+        # Operação encadeada direta na coluna
+        df['nome_cliente'] = (
+            df['nome_cliente']
+            .str.upper()
             .str.replace(padroes, '', regex=True)
             .str.replace(r'\s+', ' ', regex=True)
             .str.strip()
@@ -26,11 +25,11 @@ def padronizar_emails(df):
     Garante que o e-mail siga a regra: contato{id}@{nome_limpo}.com
     Remove espaços, caracteres especiais e coloca em minúsculo.
     """
-    if all(col in df.columns for col in ['cliente_id', 'nome_cliente_padrao']):
+    if all(col in df.columns for col in ['cliente_id', 'nome_cliente']):
         # 1. Criamos o "slug" do nome (ex: "Beta Tech" -> "betatech")
-        # Aproveitamos o nome_cliente_padrao que já limpamos antes (sem o LTDA)
+        # Aproveitamos o nome_cliente que já limpamos antes (sem o LTDA)
         nome_slug = (
-            df['nome_cliente_padrao']
+            df['nome_cliente']
             .str.lower()
             .str.replace(r'\s+', '', regex=True) # Remove espaços
             .str.normalize('NFKD')               # Remove acentos
@@ -39,7 +38,7 @@ def padronizar_emails(df):
         )
 
         # 2. Reconstrói o e-mail para garantir 100% de consistência
-        df['email_padrao'] = "contato" + df['cliente_id'].astype(str) + "@" + nome_slug + ".com"
+        df['email'] = "contato" + df['cliente_id'].astype(str) + "@" + nome_slug + ".com"
         
     return df
 
@@ -146,3 +145,52 @@ def limpar_localidade(df):
 
     return df
 
+def remover_duplicados_id(df):
+    """
+    Remove registros duplicados baseados na coluna 'cliente_id'.
+    Mantém o último registro (keep='last') pois geralmente contém a 
+    informação mais recente ou a data de desativação preenchida.
+    """
+    if 'cliente_id' in df.columns:
+        total_antes = len(df)
+        # Remove duplicados mantendo a primeira ocorrência
+        df = df.drop_duplicates(subset=['cliente_id'], keep='first')
+            
+    return df
+
+def anular_ids_duplicados(df):
+    """
+    Versão para TESTE: Não remove a linha, apenas anula o campo 'cliente_id'
+    se ele for repetido, permitindo a auditoria visual no CSV de saída.
+    """
+    if 'cliente_id' in df.columns:
+        # Usamos 'Int64' (com I maiúsculo) para aceitar o <NA> sem virar float (1.0)
+        df['cliente_id'] = pd.to_numeric(df['cliente_id'], errors='coerce').astype('Int64')
+        
+        mask_duplicado = df['cliente_id'].duplicated(keep='first')
+        df.loc[mask_duplicado, 'cliente_id'] = pd.NA
+        
+    return df
+
+def aplicar_regras_negocio_status(df):
+    """
+    Sincroniza o status do cliente com base na presença de uma data de desativação.
+    
+    Esta função atua como uma camada de 'Data Quality' para garantir que não existam 
+    inconsistências lógicas (ex: cliente Ativo com data de saída ou vice-versa).
+    """
+    
+    if 'data_desativacao' in df.columns and 'status_cliente' in df.columns:
+        
+        # Identifica registros que possuem data de encerramento (Not Null)
+        tem_data = df['data_desativacao'].notna()
+        
+        # REGRA 1: Existência de data de desativação implica obrigatoriamente em status 'Cancelado'.
+        # Isso sobrescreve qualquer erro de preenchimento manual vindo da origem (Excel).
+        df.loc[tem_data, 'status_cliente'] = 'Cancelado'
+        
+        # REGRA 2: Ausência de data (Null/NaN) define o cliente como 'Ativo'.
+        # Garante que o status 'Cancelado' não exista sem uma data de referência para o Churn.
+        df.loc[~tem_data, 'status_cliente'] = 'Ativo'
+        
+    return df

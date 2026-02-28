@@ -11,3 +11,5 @@ temp/
 *.csv
 .idea/
 .vscode/
+data/database/*.db
+data/processed/*
