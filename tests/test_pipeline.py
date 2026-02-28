@@ -4,7 +4,8 @@ from src.transform.transform import (
     limpar_nomes_clientes, 
     padronizar_emails, 
     limpar_status_cliente, 
-    tratar_datas_especificas
+    tratar_datas_especificas,
+    limpar_localidade
 )
 
 def test_pipeline():
@@ -14,20 +15,24 @@ def test_pipeline():
     try:
         # 1. Extract & Config
         df = extract_clients(raw_file)
-        config = load_config() # Carrega o YAML aqui dinamicamente (Caso haja mudança no YAML, o código se adapta sozinho)
+        config = load_config()
         cols_data = config.get('clientes', {}).get('colunas_data', [])
         print(f"✅ Successfully loaded {len(df)} rows.")
 
-        # 2. Criar colunas de comparação (Audit Trail)
-        for col in cols_data:
-            if col in df.columns:
-                df[f'{col}_original'] = df[col]
+        # 2. Criar Trilhas de Auditoria (Backup das colunas que serão tratadas)
+        # Além das datas, vamos salvar nomes, status e localidade
+        cols_para_auditar = cols_data + ['nome_cliente', 'status_cliente', 'cidade', 'estado']
         
-        # 3. Transform
+        for col in cols_para_auditar:
+            if col in df.columns:
+                df[f'{col}_original'] = df[col] # Cria o backup antes da transformação
+
+        # 3. Transform (Agora as funções vão alterar as colunas principais)
         df = limpar_nomes_clientes(df)
         df = padronizar_emails(df)
         df = limpar_status_cliente(df)
         df = tratar_datas_especificas(df, cols_data)
+        df = limpar_localidade(df)
 
         # 4. Configuração da pasta de saída
         output_dir = 'tests_output'
@@ -37,9 +42,14 @@ def test_pipeline():
         output_path = os.path.join(output_dir, 'teste_final.csv')
         
         # 5. Export
+        # Reordenamos as colunas para que original e tratada fiquem juntas no CSV
+        # Isso facilita muito o "olhômetro" no Excel
+        cols_ordenadas = sorted(df.columns)
+        df = df[cols_ordenadas]
+
         df.to_csv(output_path, sep=';', encoding='utf-8-sig', index=False)
         print(f"✅ Arquivo gerado em: {output_path}")
-        print(f"📅 Colunas de data tratadas: {cols_data}")
+        print(f"📅 Colunas auditadas com sucesso!")
 
     except Exception as e:
         print(f"❌ Error during test: {str(e)}")

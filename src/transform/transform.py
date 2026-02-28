@@ -53,47 +53,74 @@ def limpar_status_cliente(df):
 
 def tratar_datas_especificas(df, colunas_data):
     """
-    Padroniza datas (Excel Serial, DD/MM/AAAA e Datetime) para o formato YYYY-MM-DD.
+    Normaliza colunas de data tratando dois casos críticos: 
+    1. Números seriais do Excel (ex: 45259)
+    2. Strings de texto (ex: 18/10/2024) via Regex para evitar perdas do pd.to_datetime.
     """
     for col in colunas_data:
         if col in df.columns:
-            # 1. Trata números tipo 45259 (Excel Date Serial)
-            is_numeric = pd.to_numeric(df[col], errors='coerce')
-            mask_numeric = is_numeric.notna()
+            # --- PASSO 1: Identificação de Números Seriais (Padrão Excel) ---
+            # Tenta converter para numérico; o que for string (ex: "18/10") vira NaN (coerce)
+            serie_numerica = pd.to_numeric(df[col], errors='coerce')
+            mask_serial = serie_numerica.notna()
             
-            df.loc[mask_numeric, col] = pd.to_datetime(
-                is_numeric[mask_numeric], unit='D', origin='1899-12-30'
-            )
-            
-            # 2. Converte strings (DD/MM/AAAA, ISO, Datetime com 00:00:00)
-            # dayfirst=True é essencial para o formato brasileiro
-            df[col] = pd.to_datetime(df[col], errors='coerce', dayfirst=True)
-            
-            # 3. NORMALIZAÇÃO FINAL: Remove horas/minutos e deixa apenas a data
-            # Isso resolve o problema de formatos mistos aparecendo no CSV
-            df[col] = df[col].dt.date
-            
+            # Se houver números, converte usando a base de data do Excel (30/12/1899)
+            if mask_serial.any():
+                df.loc[mask_serial, col] = pd.to_datetime(
+                    serie_numerica[mask_serial], unit='D', origin='1899-12-30'
+                ).dt.strftime('%Y-%m-%d')
+
+            # --- PASSO 2: Tratamento de Strings via Regex (Determinístico) ---
+            def formatar_string_data(val):
+                # Limpeza inicial: remove nulos e strings vazias que podem quebrar a lógica
+                if pd.isna(val) or str(val).lower() in ['nan', 'none', 'nat', '']:
+                    return None
+                
+                val_str = str(val).strip()
+                
+                # Procura o padrão brasileiro DD/MM/AAAA. Usamos Regex para garantir
+                # que o dado não "suma" se houver lixo (ex: horas 00:00:00) na string.
+                match = re.search(r'(\d{2})/(\d{2})/(\d{4})', val_str)
+                if match:
+                    dia, mes, ano = match.groups()
+                    return f"{ano}-{mes}-{dia}" # Inverte para o padrão ISO (YYYY-MM-DD)
+                
+                # Caso o dado já esteja em formato ISO, apenas limpa espaços extras
+                match_iso = re.search(r'(\d{4})-(\d{2})-(\d{2})', val_str)
+                if match_iso:
+                    return match_iso.group(0)
+                
+                # Se o formato for irreconhecível, retornamos None para manter a integridade
+                return None
+
+            # --- PASSO 3: Aplicação seletiva ---
+            # Aplicamos a função de string apenas nas linhas que NÃO eram números seriais
+            # Isso evita que o Regex tente processar objetos datetime já convertidos no Passo 1
+            mask_restante = ~mask_serial
+            df.loc[mask_restante, col] = df.loc[mask_restante, col].apply(formatar_string_data)
+
     return df
+
 
 def limpar_localidade(df):
     """
     Parte 1: Padroniza Cidades (acentos) e Estados (Siglas em Caixa Alta)
+    Parte 2: Corrige inconsistências geográficas (Ex: BH no RJ)
     """
-    # Cidades: Remove acentos e padroniza para Capitalize
+    # --- PADRONIZAÇÃO DE STRINGS ---
     if 'cidade' in df.columns:
         df['cidade'] = df['cidade'].str.normalize('NFKD')\
                                    .str.encode('ascii', errors='ignore')\
                                    .str.decode('utf-8')\
                                    .str.strip().str.title()
 
-    # Estados: Converte nomes longos para siglas e coloca em CAIXA ALTA para facilitar JOIN com banco de dados
     if 'estado' in df.columns:
-        # Primeiro limpa acentos e coloca em Upper para o mapeamento funcionar
         df['estado'] = df['estado'].str.normalize('NFKD')\
                                    .str.encode('ascii', errors='ignore')\
                                    .str.decode('utf-8')\
                                    .str.strip().str.upper()
         
+        # Mapeia nomes por extenso para siglas
         mapeamento_estados = {
             'SAO PAULO': 'SP',
             'MINAS GERAIS': 'MG',
@@ -101,6 +128,21 @@ def limpar_localidade(df):
             'RIO DE JANEIRO': 'RJ'
         }
         df['estado'] = df['estado'].replace(mapeamento_estados)
-        
+
+    # --- CORREÇÃO DE INCONSISTÊNCIAS (A "Verdade" pela Cidade) ---
+    if 'cidade' in df.columns and 'estado' in df.columns:
+        # Dicionário que define qual UF cada cidade DEVE pertencer
+        correcao_geografica = {
+            'Belo Horizonte': 'MG',
+            'Sao Paulo': 'SP',
+            'Rio De Janeiro': 'RJ',
+            'Curitiba': 'PR'
+        }
+
+        # Iteramos sobre o dicionário para corrigir estados errados
+        for cidade_correta, uf_correta in correcao_geografica.items():
+            mask = df['cidade'] == cidade_correta
+            df.loc[mask, 'estado'] = uf_correta
+
     return df
 
