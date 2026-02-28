@@ -24,15 +24,23 @@ def extract_data(file_path, schema_key):
     if not schema:
         raise ValueError(f"Chave '{schema_key}' não encontrada no schema.yaml")
 
-    # Identifica a extensão do arquivo para decidir o método de leitura
     ext = os.path.splitext(file_path)[-1].lower()
     
     if ext in ['.xlsx', '.xls']:
-        # Lê Excel usando a aba do YAML
         df = pd.read_excel(file_path, sheet_name=schema.get('aba', 'Sheet1'))
+        
     elif ext == '.csv':
-        # Lê CSV (útil para as cobranças que costumam vir nesse formato)
-        df = pd.read_csv(file_path, sep=schema.get('separador', ';'), encoding='utf-8')
+        # AJUSTE: Pegamos o separador do YAML. Se não existir, o padrão é ';'
+        sep_config = schema.get('separador', ';')
+        
+        # AJUSTE: Usamos 'utf-8-sig' ou 'latin-1' para evitar erros de acentuação (BOM)
+        # O 'low_memory=False' evita avisos de tipos mistos em arquivos grandes
+        df = pd.read_csv(
+            file_path, 
+            sep=sep_config, 
+            encoding='utf-8-sig', 
+            low_memory=False
+        )
     else:
         raise TypeError(f"Formato de arquivo {ext} não suportado.")
     

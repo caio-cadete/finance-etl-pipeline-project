@@ -1,15 +1,14 @@
 import os
-import pandas as pd
-from src.extract.loaders import extract_clients, load_config
+from src.extract.loaders import extract_data, load_config
 from src.transform.transform_clients import (
     limpar_nomes_clientes, 
     padronizar_emails, 
     limpar_status_cliente, 
-    tratar_datas_especificas,
     limpar_localidade,
     anular_ids_duplicados,
     aplicar_regras_negocio_status
 )
+from src.transform.transform_data import tratar_datas_especificas
 
 def test_pipeline():
     raw_file = "data/raw/clientes.xlsx"
@@ -21,7 +20,7 @@ def test_pipeline():
     
     try:
         # 1. EXTRACT
-        df = extract_clients(raw_file)
+        df = extract_data(raw_file, schema_key='clientes')
         config = load_config()
         cols_data = config.get(file_basename, {}).get('colunas_data', [])
         print(f"✅ Carga inicial: {len(df)} linhas.")

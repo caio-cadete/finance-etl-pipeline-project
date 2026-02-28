@@ -11,3 +11,19 @@ clientes:
   colunas_data:
     - data_cadastro
     - data_desativacao
+
+
+# Definição do Schema para a planilha de Clientes
+cobrancas:
+  colunas:
+    cobranca_id: "int64"
+    cliente_id: "int64"
+    valor_cobranca: "object"
+    status_cobranca: "category"
+    tipo_cobranca: "object"
+    forma_pagamento: "object"
+  colunas_data:
+    - data_vencimento
+    - data_pagamento
+    - criado_em
+  separador: ","
