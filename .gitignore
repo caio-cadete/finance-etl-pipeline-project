@@ -4,10 +4,8 @@ database/*.db
 __pycache__/
 *.pyc
 .pytest_cache/
-teste.csv
 tests_output/
 temp/
-*.csv
 .idea/
 .vscode/
 data/database/*.db
