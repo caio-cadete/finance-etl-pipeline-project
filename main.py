@@ -41,105 +41,145 @@ def pipeline_transform_billings(df, cols_data):
               .pipe(normalizar_tipo_cobranca)
               .pipe(limpar_forma_pagamento))
 
+def generate_business_alerts(conn, output_dir):
+    """
+    Parte 3: Implementa a regra de alerta de negócio (3 meses sem pagar).
+    Exporta para Excel simulando o envio para uma API.
+    """
+    print("\n" + "-"*40)
+    print("🔔 PROCESSANDO REGRAS DE ALERTA")
+    print("-"*40)
+    
+    try:
+        # A View vw_alerta_inadimplencia_critica deve estar no seu schema.py
+        df_alerta = pd.read_sql("SELECT * FROM vw_alerta_inadimplencia_critica", conn)
+        
+        if not df_alerta.empty:
+            alert_filename = "alerta_inadimplencia_critica.xlsx"
+            alert_path = os.path.join(output_dir, alert_filename)
+            
+            # Exportação para Excel (Requisito da Parte 3)
+            df_alerta.to_excel(alert_path, index=False)
+            
+            print(f"   ✔️  Regra de Negócio: {len(df_alerta)} clientes atingiram o critério crítico.")
+            print(f"   🚀 Simulação: Dados preparados e salvos em: {alert_filename}")
+        else:
+            print("   ℹ️  Nenhum cliente atingiu o critério de alerta de 3 meses.")
+            
+    except Exception as e:
+        print(f"   ❌ Erro ao gerar alerta da Parte 3: {e}")
+
 # --- EXECUÇÃO PRINCIPAL ---
 
-def run_full_pipeline():
-    print("🚀 Iniciando Pipeline de Produção: Clientes & Cobranças")
+def run_pipeline():
+    print("\n" + "="*60)
+    print("🚀 INICIANDO EXECUÇÃO DO PIPELINE DE PRODUÇÃO")
+    print("="*60)
 
-    # --- NOVO: GARANTIA DE EXECUÇÃO LIMPA ---
+    # --- ESTÁGIO 1: IDEMPOTÊNCIA ---
     if os.path.exists(DB_PATH):
         try:
-            # Tenta deletar o banco e o journal antes de começar a nova rodada
             os.remove(DB_PATH)
-            if os.path.exists(f"{DB_PATH}-journal"):
-                os.remove(f"{DB_PATH}-journal")
-            print("🧹 Limpeza realizada: Iniciando banco do zero.")
+            for suffix in ["-journal", "-wal", "-shm"]:
+                tmp_file = f"{DB_PATH}{suffix}"
+                if os.path.exists(tmp_file): os.remove(tmp_file)
+            print("\n✔️  Idempotência: Ambiente limpo para nova carga.")
         except PermissionError:
-            print("⚠️ Erro: Feche o Power BI antes de rodar o script!")
+            print("\n❌ Erro: O banco de dados está aberto em outro programa.")
             return
-    # ----------------------------------------
+
+    # Garantia de diretórios
     os.makedirs(PROCESSED_DIR, exist_ok=True)
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    ANALYTICS_DIR = os.path.join(PROCESSED_DIR, "analytics")
+    os.makedirs(ANALYTICS_DIR, exist_ok=True)
+
+    # --- ESTÁGIO 2: SQL SCHEMA ---
+    print("\n" + "-"*40)
+    print("🗄️  CONFIGURANDO AMBIENTE SQL")
+    print("-"*40)
     
-    config = load_config()
-
     try:
-        # 1. Adicionamos timeout para evitar 'database is locked' se o Power BI estiver lendo
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
-            # 2. PRAGMA DELETE: Força o arquivo -journal a sumir no commit
             conn.execute("PRAGMA journal_mode = DELETE;")
-            
-            cursor = conn.cursor()
-            create_schema(cursor) # Garante que ambas as tabelas existam
+            create_schema(conn.cursor())
 
-            # --- PARTE 1: CLIENTES ---
+            # --- PROCESSAMENTO DE DADOS ---
             print("\n👥 Processando Clientes...")
-            raw_clientes = "data/raw/clientes.xlsx"
-            df_cli = extract_data(raw_clientes, schema_key='clientes')
-            cols_data_cli = config.get('clientes', {}).get('colunas_data', [])
-            df_cli_clean = pipeline_transform_clientes(df_cli, cols_data_cli)
-            
-            cursor.execute("DELETE FROM tb_clientes")
+            df_cli = extract_data("data/raw/clientes.xlsx", schema_key='clientes')
+            df_cli_clean = pipeline_transform_clientes(df_cli, load_config()['clientes']['colunas_data'])
             df_cli_clean.to_sql('tb_clientes', conn, if_exists='append', index=False)
-            print("✅ Clientes persistidos no SQLite.")
+            print(f"   ✔️  {len(df_cli_clean):,} registros persistidos.")
 
-            # --- PARTE 2: COBRANÇAS ---
             print("\n💰 Processando Cobranças...")
-            raw_cobrancas = "data/raw/cobrancas.csv"
-            df_cob = extract_data(raw_cobrancas, schema_key='cobrancas')
-            cols_data_cob = config.get('cobrancas', {}).get('colunas_data', [])
-            df_cob_clean = pipeline_transform_billings(df_cob, cols_data_cob)
+            df_cob = extract_data("data/raw/cobrancas.csv", schema_key='cobrancas')
+            df_cob_clean = pipeline_transform_billings(df_cob, load_config()['cobrancas']['colunas_data'])
+            
+            # Integridade
+            total_raw = len(df_cob_clean)
+            df_cob_clean = df_cob_clean[df_cob_clean['cliente_id'].isin(df_cli_clean['cliente_id'])]
+            removidos = total_raw - len(df_cob_clean)
+            
+            df_cob_clean.to_sql('tb_cobrancas', conn, if_exists='append', index=False, chunksize=5000)
+            print(f"   ✔️  {len(df_cob_clean):,} registros persistidos.")
+            if removidos > 0:
+                print(f"   ⚠️  Integridade: {removidos} registros órfãos descartados.")
 
-            # 🛡️ FILTRO DE INTEGRIDADE REFERENCIAL
-            # Só mantém cobranças cujo cliente_id existe no DataFrame de clientes que acabamos de processar
-            clientes_validos = df_cli_clean['cliente_id'].unique()
-            df_cob_clean = df_cob_clean[df_cob_clean['cliente_id'].isin(clientes_validos)]
+            # --- CAMADA ANALÍTICA (GOLD) ---
+            print("\n" + "-"*40)
+            print("📊 GERANDO CAMADA ANALÍTICA (GOLD)")
+            print("-"*40)
             
-            print(f"⚠️ Removidas {len(df_cob) - len(df_cob_clean)} cobranças de clientes inexistentes.")
+            estudo_geo = pd.read_sql("SELECT * FROM vw_resumo_por_estado", conn)
+            estudo_inadimplencia = pd.read_sql("SELECT * FROM vw_clientes_inadimplentes", conn)
+            estudo_churn = pd.read_sql("SELECT * FROM vw_analise_churn", conn)
+            base_consolidada = pd.read_sql("SELECT * FROM vw_faturamento_consolidado", conn)
             
-            # Agora sim, fazemos a carga com o chunksize para evitar o erro de variáveis
-            try:
-                cursor.execute("DELETE FROM tb_cobrancas")
-                df_cob_clean.to_sql(
-                    'tb_cobrancas', 
-                    conn, 
-                    if_exists='append', 
-                    index=False, 
-                    chunksize=5000, 
-                )
+            total_clientes = estudo_churn['qtd_clientes'].sum()
+            print(f"   ✔️  KPIs Geográficos: {len(estudo_geo)} estados.")
+            print(f"   ✔️  Inadimplência: {len(estudo_inadimplencia):,} registros detectados.")
+            print(f"   ✔️  Churn: {len(estudo_churn)} categorias analisadas para {total_clientes:,.0f} clientes.")
 
-            # 3. FORÇAR O FECHAMENTO (Commit + Checkpoint)
-                # Isso mata o arquivo -journal imediatamente
-                conn.commit()
-                conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            conn.commit()
 
-                print(f"✅ {len(df_cob_clean)} Cobranças válidas persistidas no SQLite.")
-            except Exception as sql_e:
-                print(f"❌ ERRO ESPECÍFICO DO SQLITE: {sql_e}")
-                raise sql_e
-            
+            generate_business_alerts(conn, ANALYTICS_DIR)
 
-            
-            # --- PARTE 3: EXPORTAÇÃO FINAL ---
-            print("\n📂 Exportando arquivos processados para a pasta 'processed'...")
-            
-            # Exportação de Clientes (Parquet para Power BI e CSV para Auditoria)
-            df_cli_clean.to_parquet(os.path.join(PROCESSED_DIR, "clientes.parquet"), index=False)
-            df_cli_clean.to_csv(os.path.join(PROCESSED_DIR, "clientes.csv"), sep=';', encoding='utf-8-sig', index=False)
-            
-            # Exportação de Cobranças (Parquet para Power BI e CSV para Auditoria)
-            df_cob_clean.to_parquet(os.path.join(PROCESSED_DIR, "cobrancas.parquet"), index=False)
-            df_cob_clean.to_csv(os.path.join(PROCESSED_DIR, "cobrancas.csv"), sep=';', encoding='utf-8-sig', index=False)
-            
-            print(f"✅ Arquivos gerados em {PROCESSED_DIR}:")
+        # --- ESTÁGIO 4: EXPORTAÇÃO ---
+        print("\n" + "-"*40)
+        print("💾 EXPORTANDO ARTEFATOS FINAIS")
+        print("-"*40)
 
-        print("\n🏁 Pipeline completo finalizado com sucesso!")
+        # Mapeamento para exportação organizada
+        silver_layers = {
+            "clientes": df_cli_clean, 
+            "cobrancas": df_cob_clean, 
+            "base_consolidada": base_consolidada
+        }
+        
+        gold_layers = {
+            "estudo_geografico": estudo_geo, 
+            "estudo_inadimplencia": estudo_inadimplencia, 
+            "estudo_churn": estudo_churn
+        }
+
+        # Salvando Camada Silver (data/processed)
+        for name, df in silver_layers.items():
+            df.to_parquet(os.path.join(PROCESSED_DIR, f"{name}.parquet"), index=False)
+            df.to_csv(os.path.join(PROCESSED_DIR, f"{name}.csv"), sep=';', encoding='utf-8-sig', index=False)
+            print(f"   💾 Base {name} salva.")
+
+        # Salvando Camada Gold (data/processed/analytics)
+        for name, df in gold_layers.items():
+            df.to_parquet(os.path.join(ANALYTICS_DIR, f"{name}.parquet"), index=False)
+            df.to_csv(os.path.join(ANALYTICS_DIR, f"{name}.csv"), sep=';', encoding='utf-8-sig', index=False)
+            print(f"   📈 Estudo {name} exportado para analytics.")
+
+        print("\n" + "="*60)
+        print("✅ PIPELINE CONCLUÍDO COM SUCESSO")
+        print(f"📍 Local: {PROCESSED_DIR}")
+        print("="*60 + "\n")
 
     except Exception as e:
-        print(f"❌ Erro crítico no Pipeline: {e}")
-        print("--- DEBUG COLUNAS ---")
-        print(f"Colunas no DataFrame: {df_cob_clean.columns.tolist()}")
+        print(f"\n❌ FALHA CRÍTICA: {str(e)}")
 
 if __name__ == "__main__":
-    run_full_pipeline()
-
+    run_pipeline()
