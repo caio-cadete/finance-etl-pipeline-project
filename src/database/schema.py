@@ -156,4 +156,4 @@ def create_schema(cursor):
         LEFT JOIN UltimoPagamento u ON d.cliente_id = u.cliente_id;
     """)
     
-    print("   ✔️  Analytics: 5 Views de inteligência de negócio integradas (incluindo Regra de Alerta).")
+    print("   ✔️  BI: 5 Camadas de inteligência integradas (incluindo Regra de Alerta).")

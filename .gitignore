@@ -1,4 +1,3 @@
-data/raw/*
 data/processed/*
 database/*.db
 .venv/
@@ -12,4 +11,5 @@ temp/
 .idea/
 .vscode/
 data/database/*.db
-data/processed/*
+data/analytics/*
+data/alerts/*

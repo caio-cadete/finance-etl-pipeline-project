@@ -18,10 +18,12 @@ from src.transform.transform_billings import (
 )
 
 
-# Configurações de Caminho (Facilita manutenção futura)
+# --- CONFIGURAÇÕES DE CAMINHO ---
 RAW_FILE = "data/raw/clientes.xlsx"
 DB_PATH = "data/database/etl_local.db"
 PROCESSED_DIR = "data/processed"
+ALERTS_DIR = "data/alerts"  
+ANALYTICS_DIR = os.path.join(PROCESSED_DIR, "analytics")
 
 def pipeline_transform_clientes(df, cols_data):
     """Agrupa todas as transformações de clientes em um único fluxo."""
@@ -55,16 +57,15 @@ def generate_business_alerts(conn, output_dir):
         df_alerta = pd.read_sql("SELECT * FROM vw_alerta_inadimplencia_critica", conn)
         
         if not df_alerta.empty:
-            alert_filename = "alerta_inadimplencia_critica.xlsx"
-            alert_path = os.path.join(output_dir, alert_filename)
-            
-            # Exportação para Excel (Requisito da Parte 3)
+            # Garante que a pasta data/alerts existe
+            os.makedirs(output_dir, exist_ok=True)
+            alert_path = os.path.join(output_dir, "alerta_inadimplencia_critica.xlsx").replace("\\", "/")
             df_alerta.to_excel(alert_path, index=False)
+
             
-            print(f"   ✔️  Regra de Negócio: {len(df_alerta)} clientes atingiram o critério crítico.")
-            print(f"   🚀 Simulação: Dados preparados e salvos em: {alert_filename}")
+            print(f"   🚀 AÇÃO: Arquivo 'alerta_inadimplencia_critica.xlsx' gerado para simulação de envio.")
         else:
-            print("   ℹ️  Nenhum cliente atingiu o critério de alerta de 3 meses.")
+            print("   ℹ️  STATUS: Nenhum cliente cumpre o critério de 3 meses de inadimplência consecutiva.")
             
     except Exception as e:
         print(f"   ❌ Erro ao gerar alerta da Parte 3: {e}")
@@ -83,14 +84,14 @@ def run_pipeline():
             for suffix in ["-journal", "-wal", "-shm"]:
                 tmp_file = f"{DB_PATH}{suffix}"
                 if os.path.exists(tmp_file): os.remove(tmp_file)
-            print("\n✔️  Idempotência: Ambiente limpo para nova carga.")
+            print("\n✔️  RESET: Ambiente limpo e execuções anteriores removidas.")
         except PermissionError:
-            print("\n❌ Erro: O banco de dados está aberto em outro programa.")
+            print("\n❌ ERRO: O banco de dados está aberto em outro programa.")
             return
 
     # Garantia de diretórios
     os.makedirs(PROCESSED_DIR, exist_ok=True)
-    ANALYTICS_DIR = os.path.join(PROCESSED_DIR, "analytics")
+    os.makedirs(ALERTS_DIR, exist_ok=True)
     os.makedirs(ANALYTICS_DIR, exist_ok=True)
 
     # --- ESTÁGIO 2: SQL SCHEMA ---
@@ -103,12 +104,15 @@ def run_pipeline():
             conn.execute("PRAGMA journal_mode = DELETE;")
             create_schema(conn.cursor())
 
-            # --- PROCESSAMENTO DE DADOS ---
+            # --- PROCESSAMENTO DE DADOS (CAMADA SILVER) ---
+            print("\n" + "-"*40)
+            print("⚙️  PROCESSAMENTO: CAMADA SILVER")
+            print("-"*40)
             print("\n👥 Processando Clientes...")
             df_cli = extract_data("data/raw/clientes.xlsx", schema_key='clientes')
             df_cli_clean = pipeline_transform_clientes(df_cli, load_config()['clientes']['colunas_data'])
             df_cli_clean.to_sql('tb_clientes', conn, if_exists='append', index=False)
-            print(f"   ✔️  {len(df_cli_clean):,} registros persistidos.")
+            print(f"   ✔️  {len(df_cli_clean):,} registros importados com sucesso.")
 
             print("\n💰 Processando Cobranças...")
             df_cob = extract_data("data/raw/cobrancas.csv", schema_key='cobrancas')
@@ -120,9 +124,10 @@ def run_pipeline():
             removidos = total_raw - len(df_cob_clean)
             
             df_cob_clean.to_sql('tb_cobrancas', conn, if_exists='append', index=False, chunksize=5000)
-            print(f"   ✔️  {len(df_cob_clean):,} registros persistidos.")
-            if removidos > 0:
-                print(f"   ⚠️  Integridade: {removidos} registros órfãos descartados.")
+            print(f"   ✔️  {len(df_cob_clean):,} registros processados.")
+            if removidos > 0:      
+                print(f"   ⚠️  INTEGRIDADE: {removidos} cobranças descartadas por não possuírem um Cliente correspondente (ID órfão).")
+                print(f"      Isso garante que o faturamento no Power BI seja 100% auditável.")
 
             # --- CAMADA ANALÍTICA (GOLD) ---
             print("\n" + "-"*40)
@@ -141,7 +146,7 @@ def run_pipeline():
 
             conn.commit()
 
-            generate_business_alerts(conn, ANALYTICS_DIR)
+            generate_business_alerts(conn, ALERTS_DIR)
 
         # --- ESTÁGIO 4: EXPORTAÇÃO ---
         print("\n" + "-"*40)
@@ -165,17 +170,19 @@ def run_pipeline():
         for name, df in silver_layers.items():
             df.to_parquet(os.path.join(PROCESSED_DIR, f"{name}.parquet"), index=False)
             df.to_csv(os.path.join(PROCESSED_DIR, f"{name}.csv"), sep=';', encoding='utf-8-sig', index=False)
-            print(f"   💾 Base {name} salva.")
+            print(f"   💾 [Silver] Base '{name}' pronta.")
 
         # Salvando Camada Gold (data/processed/analytics)
         for name, df in gold_layers.items():
             df.to_parquet(os.path.join(ANALYTICS_DIR, f"{name}.parquet"), index=False)
             df.to_csv(os.path.join(ANALYTICS_DIR, f"{name}.csv"), sep=';', encoding='utf-8-sig', index=False)
-            print(f"   📈 Estudo {name} exportado para analytics.")
+            print(f"   📈 [Gold]   Estudo '{name}' publicado.")
 
         print("\n" + "="*60)
         print("✅ PIPELINE CONCLUÍDO COM SUCESSO")
-        print(f"📍 Local: {PROCESSED_DIR}")
+        print(f"📂 Repositório [Silver]: {PROCESSED_DIR}")
+        print(f"📂 Repositório [Gold]:   {ANALYTICS_DIR.replace('\\', '/')}")
+        print(f"🔔 Central de Alertas:  {ALERTS_DIR.replace('\\', '/')}")
         print("="*60 + "\n")
 
     except Exception as e:
