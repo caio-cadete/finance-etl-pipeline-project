@@ -37,6 +37,7 @@ def generate_business_alerts(conn, output_dir):
             os.makedirs(output_dir, exist_ok=True)
             alert_path = os.path.join(output_dir, "alerta_inadimplencia_critica.xlsx").replace("\\", "/")
             df_alerta.to_excel(alert_path, index=False)
+            df_alerta.to_csv(os.path.join(output_dir, "alerta_inadimplencia_critica.csv"), sep=';', encoding='utf-8-sig', decimal=',', index=False)
             
             print(f"    🔍 REGRA: Clientes com 3 meses consecutivos de inadimplência.")
             print(f"    📊 {qtd_encontrada} clientes encontrados no alerta de {nome_alerta}.")
