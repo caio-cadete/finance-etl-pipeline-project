@@ -24,15 +24,17 @@ Siga os passos abaixo para configurar o ambiente e rodar o pipeline em sua máqu
 
 **2. Configurar o Ambiente Virtual (venv)**
 
-```# Criar o ambiente virtual```
+Crie o ambiente isolado para instalar as dependências:
 
 ```python -m venv venv```
 
-```# Ativar o ambiente (Windows)```
+Agora, ative o ambiente de acordo com o seu sistema:
+
+### **Windows:**
 
 ```.\venv\Scripts\activate```
 
-```# Ativar o ambiente (Linux/Mac)```
+### **Linux/ macOS:**
 
 ```source venv/bin/activate```
 
