@@ -9,13 +9,15 @@ from src.transform.transform_clients import (
     limpar_status_cliente, 
     limpar_localidade,
     remover_duplicados_id,
-    aplicar_regras_negocio_status
+    aplicar_regras_negocio_status,
+    tratar_segmentacao_clientes
 )
-from src.transform.transform_data import tratar_datas_especificas
+from src.transform.transform_date import tratar_datas_especificas
 from src.transform.transform_billings import (
     limpar_valor_monetario, normalizar_status_cobranca,
     normalizar_tipo_cobranca, limpar_forma_pagamento
 )
+from src.load.exporter import salvar_camadas_processadas, generate_business_alerts
 
 
 # --- CONFIGURAÇÕES DE CAMINHO ---
@@ -33,7 +35,8 @@ def pipeline_transform_clientes(df, cols_data):
               .pipe(tratar_datas_especificas, colunas_data=cols_data)
               .pipe(aplicar_regras_negocio_status)
               .pipe(limpar_localidade)
-              .pipe(remover_duplicados_id))
+              .pipe(remover_duplicados_id)
+              .pipe(tratar_segmentacao_clientes))
 
 def pipeline_transform_billings(df, cols_data):
     """Encadeamento de transformações para Cobranças."""
@@ -43,32 +46,7 @@ def pipeline_transform_billings(df, cols_data):
               .pipe(normalizar_tipo_cobranca)
               .pipe(limpar_forma_pagamento))
 
-def generate_business_alerts(conn, output_dir):
-    """
-    Parte 3: Implementa a regra de alerta de negócio (3 meses sem pagar).
-    Exporta para Excel simulando o envio para uma API.
-    """
-    print("\n" + "-"*40)
-    print("🔔 PROCESSANDO REGRAS DE ALERTA")
-    print("-"*40)
-    
-    try:
-        # A View vw_alerta_inadimplencia_critica deve estar no seu schema.py
-        df_alerta = pd.read_sql("SELECT * FROM vw_alerta_inadimplencia_critica", conn)
-        
-        if not df_alerta.empty:
-            # Garante que a pasta data/alerts existe
-            os.makedirs(output_dir, exist_ok=True)
-            alert_path = os.path.join(output_dir, "alerta_inadimplencia_critica.xlsx").replace("\\", "/")
-            df_alerta.to_excel(alert_path, index=False)
 
-            
-            print(f"   🚀 AÇÃO: Arquivo 'alerta_inadimplencia_critica.xlsx' gerado para simulação de envio.")
-        else:
-            print("   ℹ️  STATUS: Nenhum cliente cumpre o critério de 3 meses de inadimplência consecutiva.")
-            
-    except Exception as e:
-        print(f"   ❌ Erro ao gerar alerta da Parte 3: {e}")
 
 # --- EXECUÇÃO PRINCIPAL ---
 
@@ -166,17 +144,8 @@ def run_pipeline():
             "estudo_churn": estudo_churn
         }
 
-        # Salvando Camada Silver (data/processed)
-        for name, df in silver_layers.items():
-            df.to_parquet(os.path.join(PROCESSED_DIR, f"{name}.parquet"), index=False)
-            df.to_csv(os.path.join(PROCESSED_DIR, f"{name}.csv"), sep=';', encoding='utf-8-sig', index=False)
-            print(f"   💾 [Silver] Base '{name}' pronta.")
-
-        # Salvando Camada Gold (data/processed/analytics)
-        for name, df in gold_layers.items():
-            df.to_parquet(os.path.join(ANALYTICS_DIR, f"{name}.parquet"), index=False)
-            df.to_csv(os.path.join(ANALYTICS_DIR, f"{name}.csv"), sep=';', encoding='utf-8-sig', index=False)
-            print(f"   📈 [Gold]   Estudo '{name}' publicado.")
+        salvar_camadas_processadas(silver_layers, PROCESSED_DIR, gold_layers, ANALYTICS_DIR)
+    
 
         print("\n" + "="*60)
         print("✅ PIPELINE CONCLUÍDO COM SUCESSO")

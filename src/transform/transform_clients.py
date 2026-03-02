@@ -100,9 +100,8 @@ def remover_duplicados_id(df):
     informação mais recente ou a data de desativação preenchida.
     """
     if 'cliente_id' in df.columns:
-        total_antes = len(df)
         # Remove duplicados mantendo a primeira ocorrência
-        df = df.drop_duplicates(subset=['cliente_id'], keep='first')
+        df = df.drop_duplicates(subset=['cliente_id'], keep='last')
             
     return df
 
@@ -140,5 +139,20 @@ def aplicar_regras_negocio_status(df):
         # REGRA 2: Ausência de data (Null/NaN) define o cliente como 'Ativo'.
         # Garante que o status 'Cancelado' não exista sem uma data de referência para o Churn.
         df.loc[~tem_data, 'status_cliente'] = 'Ativo'
+        
+    return df
+
+def tratar_segmentacao_clientes(df):
+    """
+    1. Transforma o conteúdo original (os 10 nomes) em 'grupo_economico'.
+    2. Cria uma nova coluna 'nome_cliente' com IDs únicos (4.000 registros).
+    """
+    # Criamos uma cópia do conteúdo original para a nova coluna de Grupo
+    if 'nome_cliente' in df.columns:
+        df['grupo_economico'] = df['nome_cliente']
+    
+    # Agora sobrescrevemos a 'nome_cliente' com a identidade única por ID
+    if 'cliente_id' in df.columns:
+        df['nome_cliente'] = 'Cliente ' + df['cliente_id'].astype(str)
         
     return df

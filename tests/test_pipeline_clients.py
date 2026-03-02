@@ -8,7 +8,7 @@ from src.transform.transform_clients import (
     anular_ids_duplicados,
     aplicar_regras_negocio_status
 )
-from src.transform.transform_data import tratar_datas_especificas
+from transform.transform_date import tratar_datas_especificas
 
 def test_pipeline():
     raw_file = "data/raw/clientes.xlsx"

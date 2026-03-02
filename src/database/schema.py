@@ -17,6 +17,7 @@ def create_schema(cursor):
             estado TEXT,
             data_cadastro DATE,
             data_desativacao DATE,
+            grupo_economico TEXT,
             CHECK (
                 (data_desativacao IS NOT NULL AND status_cliente = 'Cancelado') OR 
                 (data_desativacao IS NULL AND status_cliente = 'Ativo')
@@ -71,7 +72,7 @@ def create_schema(cursor):
         DROP VIEW IF EXISTS vw_faturamento_consolidado;
         CREATE VIEW vw_faturamento_consolidado AS
         SELECT 
-            c.nome_cliente, c.email, c.cidade, c.estado, c.status_cliente,
+            c.cliente_id, c.grupo_economico, c.nome_cliente, c.email, c.cidade, c.estado, c.status_cliente,
             f.valor_cobranca, f.data_vencimento, f.status_cobranca, 
             f.tipo_cobranca, f.forma_pagamento, f.data_pagamento
         FROM tb_cobrancas f
@@ -93,7 +94,9 @@ def create_schema(cursor):
         DROP VIEW IF EXISTS vw_clientes_inadimplentes;
         CREATE VIEW vw_clientes_inadimplentes AS
         SELECT 
+            cliente_id,
             nome_cliente,
+            grupo_economico,
             email,
             valor_cobranca,
             data_vencimento,
@@ -147,6 +150,7 @@ def create_schema(cursor):
             GROUP BY cliente_id
         )
         SELECT 
+            d.cliente_id,
             c.nome_cliente,
             u.data_ultima_paga,
             d.data_primeira_aberto,
