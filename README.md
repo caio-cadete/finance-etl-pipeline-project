@@ -14,17 +14,36 @@ para faturamento e controle de inadimplência.
 
 ## 🚀 Como Executar
 
-Instale as dependências:
+Siga os passos abaixo para configurar o ambiente e rodar o pipeline em sua máquina local:
 
-``` pip install -r requirements.txt```
+**1. Clonar o repositório**
 
+```git clone https://github.com/caio-cadete/finance-etl-pipeline-project.git```
+
+```cd finance-etl-pipeline-project```
+
+**2. Configurar o Ambiente Virtual (venv)**
+
+```# Criar o ambiente virtual```
+```python -m venv venv```
+
+```# Ativar o ambiente (Windows)```
+```.\venv\Scripts\activate```
+
+```# Ativar o ambiente (Linux/Mac)```
+```source venv/bin/activate```
+
+**3. Instalar Dependências**
 
 Execute o pipeline:
 
-``` python main.py```
+```pip install -r requirements.txt```
 
+**4. Executar o Pipeline**
 
-*Os dados processados serão gerados em `data/processed` e os alertas em `data/alerts`.*
+```python main.py```
+
+*Os dados processados serão gerados em `data/processed` e os alertas de inadimplência em `data/alerts`. Para validar as transformações, você também pode executar os scripts na pasta `tests/`.*
 
 ## 🛠️ Tecnologias Utilizadas
 
