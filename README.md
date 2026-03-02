@@ -108,7 +108,7 @@ Execução:
 ### Mapa Visual do Diretório:
 
 ```
-finance-etl-pipeline-project/
+finance_etl_pipeline_project/
 ├── config/
 │   └── schema.yaml          # Configurações de colunas e seletores
 ├── data/
@@ -128,8 +128,8 @@ finance-etl-pipeline-project/
 │       └── exporter.py      # Carga Silver/Gold e exportação
 ├── tests/
 │   ├── test_pipeline_clients.py   # Auditoria lado a lado de clientes
-│   ├── tests_pipeline_billings.py # Auditoria lado a lado de cobranças
-│   └── tests_output/              # Relatórios para validação humana
+│   └── tests_pipeline_billings.py # Auditoria lado a lado de cobranças
+├── tests_output/            # Relatórios para validação humana (RAIZ)
 ├── main.py                  # Orquestrador central do Pipeline
 ├── requirements.txt         # Dependências do projeto
 └── .gitignore               # Filtro de arquivos locais e temporários
