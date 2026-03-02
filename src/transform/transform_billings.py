@@ -1,5 +1,4 @@
 import pandas as pd
-import re
 
 def limpar_valor_monetario(df, col_valor='valor_cobranca'):
     """

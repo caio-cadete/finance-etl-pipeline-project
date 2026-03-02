@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import pandas as pd
 from src.extract.loaders import extract_data, load_config
 from src.database.schema import create_schema
 from src.transform.transform_clients import (
@@ -53,6 +52,7 @@ def run_pipeline():
     print("🚀 INICIANDO EXECUÇÃO DO PIPELINE DE PRODUÇÃO")
     print("="*60)
 
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     # --- ESTÁGIO 1: IDEMPOTÊNCIA ---
     if os.path.exists(DB_PATH):
         try:

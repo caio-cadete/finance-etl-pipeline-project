@@ -147,12 +147,16 @@ def tratar_segmentacao_clientes(df):
     1. Transforma o conteúdo original (os 10 nomes) em 'grupo_economico'.
     2. Cria uma nova coluna 'nome_cliente' com IDs únicos (4.000 registros).
     """
+    # ESTA É A LINHA MÁGICA: Transforma o df em uma cópia real e independente
+    df = df.copy() 
+    
     # Criamos uma cópia do conteúdo original para a nova coluna de Grupo
+    # Usamos .loc para dizer explicitamente onde gravar os dados
     if 'nome_cliente' in df.columns:
-        df['grupo_economico'] = df['nome_cliente']
+        df.loc[:, 'grupo_economico'] = df['nome_cliente']
     
     # Agora sobrescrevemos a 'nome_cliente' com a identidade única por ID
     if 'cliente_id' in df.columns:
-        df['nome_cliente'] = 'Cliente ' + df['cliente_id'].astype(str)
+        df.loc[:, 'nome_cliente'] = 'Cliente ' + df['cliente_id'].astype(str)
         
     return df
