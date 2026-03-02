@@ -1,6 +1,6 @@
 # finance-etl-pipeline-project
 
-Este projeto de Engenharia de Dados implementa um pipeline de ETL (Extract, Transform, Load) completo para o processamento de dados de faturamento e clientes, utilizando a **Medallion Architecture** (Arquitetura de Medalhão) para garantir a organização e qualidade dos dados.
+Este projeto de **Engenharia de Dados** implementa um pipeline de ETL (Extract, Transform, Load) completo para o processamento de dados de faturamento e clientes, utilizando a **Medallion Architecture** (Arquitetura de Medalhão) para garantir a organização e qualidade dos dados.
 O pipeline de dados é modular e resiliente, focado em transformar dados brutos de cobranças e clientes em insights estratégicos
 para faturamento e controle de inadimplência.
 
