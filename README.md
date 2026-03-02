@@ -30,11 +30,11 @@ Crie o ambiente isolado para instalar as dependências:
 
 Agora, ative o ambiente de acordo com o seu sistema:
 
-### **Windows:**
+* **Windows**:
 
 ```.\venv\Scripts\activate```
 
-### **Linux/ macOS:**
+* **Linux/ macOS**:
 
 ```source venv/bin/activate```
 
@@ -120,10 +120,12 @@ Para garantir a confiabilidade das transformações e a integridade dos dados, o
 
 Os relatórios de comparação entre os estados **Bronzes** (Dados Brutos) e **Silver** (Dados Tratados) são gerados em `tests_output/`, permitindo uma **validação humana** detalhada da limpeza de nomes, valores monetários e padronização de datas através dos comandos:
 
-```# Auditoria do Pipeline de Clientes```
+* **Auditoria do Pipeline de Clientes**
+
 ``` python tests/test_pipeline_clients.py```
 
-```# Auditoria do Pipeline de Cobranças```
+* **Auditoria do Pipeline de Cobranças**
+
 ```python tests/test_pipeline_billings.py```
 
 **Nota:** *Para os testes funcionarem, é necessário que os arquivos brutos estejam presentes na pasta  `data/raw/ `.*
