@@ -17,7 +17,7 @@ from src.transform.transform_billings import (
     limpar_valor_monetario, normalizar_status_cobranca,
     normalizar_tipo_cobranca, limpar_forma_pagamento
 )
-from src.load.exporter import salvar_camadas_processadas, generate_business_alerts
+from src.load.exporter import salvar_camadas_processadas, generate_business_alerts, load_silver_layer, generate_gold_layer
 
 
 # --- CONFIGURAÇÕES DE CAMINHO ---
@@ -45,8 +45,6 @@ def pipeline_transform_billings(df, cols_data):
               .pipe(normalizar_status_cobranca)
               .pipe(normalizar_tipo_cobranca)
               .pipe(limpar_forma_pagamento))
-
-
 
 # --- EXECUÇÃO PRINCIPAL ---
 
@@ -76,51 +74,23 @@ def run_pipeline():
     print("\n" + "-"*40)
     print("🗄️  CONFIGURANDO AMBIENTE SQL")
     print("-"*40)
+
+    # 1. Extração e Transformação (Fora do bloco do banco)
+    df_cli = extract_data("data/raw/clientes.xlsx", schema_key='clientes')
+    df_cli_clean = pipeline_transform_clientes(df_cli, load_config()['clientes']['colunas_data'])
+
+    df_cob = extract_data("data/raw/cobrancas.csv", schema_key='cobrancas')
+    df_cob_clean = pipeline_transform_billings(df_cob, load_config()['cobrancas']['colunas_data'])
     
     try:
         with sqlite3.connect(DB_PATH, timeout=30) as conn:
             conn.execute("PRAGMA journal_mode = DELETE;")
             create_schema(conn.cursor())
 
-            # --- PROCESSAMENTO DE DADOS (CAMADA SILVER) ---
-            print("\n" + "-"*40)
-            print("⚙️  PROCESSAMENTO: CAMADA SILVER")
-            print("-"*40)
-            print("\n👥 Processando Clientes...")
-            df_cli = extract_data("data/raw/clientes.xlsx", schema_key='clientes')
-            df_cli_clean = pipeline_transform_clientes(df_cli, load_config()['clientes']['colunas_data'])
-            df_cli_clean.to_sql('tb_clientes', conn, if_exists='append', index=False)
-            print(f"   ✔️  {len(df_cli_clean):,} registros importados com sucesso.")
-
-            print("\n💰 Processando Cobranças...")
-            df_cob = extract_data("data/raw/cobrancas.csv", schema_key='cobrancas')
-            df_cob_clean = pipeline_transform_billings(df_cob, load_config()['cobrancas']['colunas_data'])
-            
-            # Integridade
-            total_raw = len(df_cob_clean)
-            df_cob_clean = df_cob_clean[df_cob_clean['cliente_id'].isin(df_cli_clean['cliente_id'])]
-            removidos = total_raw - len(df_cob_clean)
-            
-            df_cob_clean.to_sql('tb_cobrancas', conn, if_exists='append', index=False, chunksize=5000)
-            print(f"   ✔️  {len(df_cob_clean):,} registros processados.")
-            if removidos > 0:      
-                print(f"   ⚠️  INTEGRIDADE: {removidos} cobranças descartadas por não possuírem um Cliente correspondente (ID órfão).")
-                print(f"      Isso garante que o faturamento no Power BI seja 100% auditável.")
-
-            # --- CAMADA ANALÍTICA (GOLD) ---
-            print("\n" + "-"*40)
-            print("📊 GERANDO CAMADA ANALÍTICA (GOLD)")
-            print("-"*40)
-            
-            estudo_geo = pd.read_sql("SELECT * FROM vw_resumo_por_estado", conn)
-            estudo_inadimplencia = pd.read_sql("SELECT * FROM vw_clientes_inadimplentes", conn)
-            estudo_churn = pd.read_sql("SELECT * FROM vw_analise_churn", conn)
-            base_consolidada = pd.read_sql("SELECT * FROM vw_faturamento_consolidado", conn)
-            
-            total_clientes = estudo_churn['qtd_clientes'].sum()
-            print(f"   ✔️  KPIs Geográficos: {len(estudo_geo)} estados.")
-            print(f"   ✔️  Inadimplência: {len(estudo_inadimplencia):,} registros detectados.")
-            print(f"   ✔️  Churn: {len(estudo_churn)} categorias analisadas para {total_clientes:,.0f} clientes.")
+            # --- CAMADA SILVER ---
+            df_cob_final = load_silver_layer(conn, df_cli_clean, df_cob_clean)
+            # --- CAMADA GOLD ---
+            gold_data = generate_gold_layer(conn)
 
             conn.commit()
 
@@ -132,19 +102,22 @@ def run_pipeline():
         print("-"*40)
 
         # Mapeamento para exportação organizada
+        # Usamos os DataFrames que passaram pela Silver e a consolidada que veio da Gold
         silver_layers = {
             "clientes": df_cli_clean, 
-            "cobrancas": df_cob_clean, 
-            "base_consolidada": base_consolidada
+            "cobrancas": df_cob_final, # Usamos o df filtrado pela função de carga
+            "base_consolidada": gold_data["base_consolidada"]
         }
-        
+
+        # Mapeamos as tabelas analíticas retornadas no dicionário gold_data
         gold_layers = {
-            "estudo_geografico": estudo_geo, 
-            "estudo_inadimplencia": estudo_inadimplencia, 
-            "estudo_churn": estudo_churn
+            "estudo_geografico": gold_data["estudo_geo"], 
+            "estudo_inadimplencia": gold_data["estudo_inadimplencia"], 
+            "estudo_churn": gold_data["estudo_churn"]
         }
 
         salvar_camadas_processadas(silver_layers, PROCESSED_DIR, gold_layers, ANALYTICS_DIR)
+        
     
 
         print("\n" + "="*60)
