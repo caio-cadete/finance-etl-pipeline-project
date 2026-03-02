@@ -16,12 +16,12 @@ para faturamento e controle de inadimplência.
 
 Instale as dependências:
 
-` ` ` pip install -r requirements.txt` ` `
+``` pip install -r requirements.txt```
 
 
 Execute o pipeline:
 
-` ` ` python main.py` ` `
+``` python main.py```
 
 
 *Os dados processados serão gerados em `data/processed` e os alertas em `data/alerts`.*
@@ -75,9 +75,10 @@ Para garantir a confiabilidade das transformações, o projeto utiliza scripts d
 
 Execução:
 
-` ` ` python tests/test_pipeline_clients.py` ` `
+``` python tests/test_pipeline_clients.py```
 
-` ` `python tests/test_pipeline_billings.py` ` `
+
+```python tests/test_pipeline_billings.py```
 
 
 ## 🧠 Diferenciais Implementados
@@ -103,6 +104,36 @@ Execução:
 `data/processed/analytics`: Destino dos estudos analíticos enriquecidos (Gold).
 
 `data/alerts/`: Central de saída para os alertas de inadimplência crítica.
+
+### Mapa Visual do Diretório:
+
+```
+finance-etl-pipeline-project/
+├── config/
+│   └── schema.yaml          # Configurações de colunas e seletores
+├── data/
+│   ├── raw/                 # Camada Bronze: Arquivos originais imutáveis
+│   ├── database/            # Banco de Dados SQLite (etl_local.db)
+│   ├── processed/           # Camada Silver: Bases limpas para o BI
+│   │   └── analytics/       # Camada Gold: Estudos analíticos enriquecidos
+│   └── alerts/              # Central de Alertas de Inadimplência
+├── src/
+│   ├── extract/
+│   │   └── loaders.py       # Extração resiliente e leitura de YAML
+│   ├── transform/
+│   │   ├── transform_clients.py   # Regras de limpeza de clientes
+│   │   ├── transform_billings.py  # Normalização de cobranças
+│   │   └── transform_date.py      # Motor de conversão de datas
+│   └── load/
+│       └── exporter.py      # Carga Silver/Gold e exportação
+├── tests/
+│   ├── test_pipeline_clients.py   # Auditoria lado a lado de clientes
+│   ├── tests_pipeline_billings.py # Auditoria lado a lado de cobranças
+│   └── tests_output/              # Relatórios para validação humana
+├── main.py                  # Orquestrador central do Pipeline
+├── requirements.txt         # Dependências do projeto
+└── .gitignore               # Filtro de arquivos locais e temporários
+```
 
 ## Observação Técnica
 
