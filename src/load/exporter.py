@@ -46,3 +46,59 @@ def generate_business_alerts(conn, output_dir):
             
     except Exception as e:
         print(f"   ❌ Erro ao gerar alerta {nome_alerta}: {e}")
+
+
+
+def load_silver_layer(conn, df_cli_clean, df_cob_clean):
+    """
+    Parte 2: Processamento e Carga da Camada Silver no SQLite.
+    Mantém a regra de integridade para garantir faturamento auditável.
+    """
+    print("\n" + "-"*40)
+    print("⚙️  PROCESSAMENTO: CAMADA SILVER")
+    print("-"*40)
+
+    # --- Processando Clientes ---
+    print("\n👥 Processando Clientes...")
+    df_cli_clean.to_sql('tb_clientes', conn, if_exists='append', index=False)
+    print(f"   ✔️  {len(df_cli_clean):,} registros importados com sucesso.")
+
+    # --- Processando Cobranças ---
+    print("\n💰 Processando Cobranças...")
+    
+    # Integridade: Remove IDs órfãos
+    total_raw = len(df_cob_clean)
+    df_cob_clean_filtered = df_cob_clean[df_cob_clean['cliente_id'].isin(df_cli_clean['cliente_id'])]
+    removidos = total_raw - len(df_cob_clean_filtered)
+    
+    df_cob_clean_filtered.to_sql('tb_cobrancas', conn, if_exists='append', index=False, chunksize=5000)
+    print(f"   ✔️  {len(df_cob_clean_filtered):,} registros processados.")
+    
+    if removidos > 0:      
+        print(f"   ⚠️  INTEGRIDADE: {removidos} cobranças descartadas por não possuírem um Cliente correspondente (ID órfão).")
+        print(f"      Isso garante que o faturamento no Power BI seja 100% auditável.")
+    
+    return df_cob_clean_filtered
+
+def generate_gold_layer(conn):
+    """
+    Parte 3: Extração das Views SQL para a Camada Analítica (Gold).
+    Gera os DataFrames que alimentam o Power BI e arquivos externos.
+    """
+    print("\n" + "-"*40)
+    print("📊 GERANDO CAMADA ANALÍTICA (GOLD)")
+    print("-"*40)
+    
+    gold_layers = {
+        "estudo_geo": pd.read_sql("SELECT * FROM vw_resumo_por_estado", conn),
+        "estudo_inadimplencia": pd.read_sql("SELECT * FROM vw_clientes_inadimplentes", conn),
+        "estudo_churn": pd.read_sql("SELECT * FROM vw_analise_churn", conn),
+        "base_consolidada": pd.read_sql("SELECT * FROM vw_faturamento_consolidado", conn)
+    }
+    
+    total_clientes = gold_layers['estudo_churn']['qtd_clientes'].sum()
+    print(f"   ✔️  KPIs Geográficos: {len(gold_layers['estudo_geo'])} estados.")
+    print(f"   ✔️  Inadimplência: {len(gold_layers['estudo_inadimplencia']):,} registros detectados.")
+    print(f"   ✔️  Churn: {len(gold_layers['estudo_churn'])} categorias analisadas para {total_clientes:,.0f} clientes.")
+    
+    return gold_layers

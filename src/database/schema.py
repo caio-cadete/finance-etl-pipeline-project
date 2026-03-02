@@ -106,15 +106,15 @@ def create_schema(cursor):
         WHERE status_cobranca = 'Atrasada' 
           AND data_vencimento < date('now');
 
-        -- View 4: Analise de Churn (Agregacao de Status)
+        -- View 4: Analise de Churn (Agregacao de Grupo Econômico)
         DROP VIEW IF EXISTS vw_analise_churn;
         CREATE VIEW vw_analise_churn AS
         SELECT 
-            status_cliente,
+            grupo_economico,
             COUNT(DISTINCT nome_cliente) AS qtd_clientes,
             ROUND(SUM(valor_cobranca), 2) AS faturamento_gerado
         FROM vw_faturamento_consolidado
-        GROUP BY status_cliente;
+        GROUP BY grupo_economico;
                          
         
         -- View 5: Regra de Alerta (Negócio) - Parte 3
