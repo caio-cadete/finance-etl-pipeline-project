@@ -16,15 +16,13 @@ para faturamento e controle de inadimplência.
 
 Instale as dependências:
 
-` ` ` 
-pip install -r requirements.txt
-` ` `
+` ` ` pip install -r requirements.txt` ` `
+
 
 Execute o pipeline:
 
-` ` ` 
-python main.py
-` ` `
+` ` ` python main.py` ` `
+
 
 *Os dados processados serão gerados em `data/processed` e os alertas em `data/alerts`.*
 
@@ -77,11 +75,10 @@ Para garantir a confiabilidade das transformações, o projeto utiliza scripts d
 
 Execução:
 
-` ` ` 
-python tests/test_pipeline_clients.py
+` ` ` python tests/test_pipeline_clients.py` ` `
 
-python tests/test_pipeline_billings.py
-` ` `
+` ` `python tests/test_pipeline_billings.py` ` `
+
 
 ## 🧠 Diferenciais Implementados
 
