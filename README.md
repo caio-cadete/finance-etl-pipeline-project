@@ -130,10 +130,7 @@ Os relatórios de comparação entre os estados **Bronzes** (Dados Brutos) e **S
 
 **Nota:** *Para os testes funcionarem, é necessário que os arquivos brutos estejam presentes na pasta  `data/raw/ `.*
 
-
 ## 🧠 Diferenciais Implementados
-
-**Logs de Produção**: Interface de terminal customizada para monitoramento em tempo real.
 
 ### **1. Governança e Integridade Referencial**
 
@@ -151,9 +148,9 @@ Os relatórios de comparação entre os estados **Bronzes** (Dados Brutos) e **S
 
 * **Abstração de Complexidade**: Criação de Views Analíticas que transformam tabelas normalizadas em um "Planilhão Base" (como a `vw_faturamento_consolidado`), facilitando o consumo por ferramentas de BI como Power BI ou Tableau.
 
-* **KPIs Geográficos e Churn** *: Motores de agregação nativos que calculam Ticket Médio por estado e faturamento por Grupo Econômico diretamente no SQL.
+* **KPIs Geográficos e Churn**: Motores de agregação nativos que calculam Ticket Médio por estado e faturamento por Grupo Econômico diretamente no SQL.
 
-* **Cálculo Dinâmico de Atraso** *: Uso de funções julianday para calcular o envelhecimento da dívida (Aging) em tempo real.
+* **Cálculo Dinâmico de Atraso**: Uso de funções julianday para calcular o envelhecimento da dívida (Aging) em tempo real.
 
 ### **4. Regras de Inadimplência Crítica (Advanced SQL)**
 

@@ -72,9 +72,26 @@ def create_schema(cursor):
         DROP VIEW IF EXISTS vw_faturamento_consolidado;
         CREATE VIEW vw_faturamento_consolidado AS
         SELECT 
-            c.cliente_id, c.grupo_economico, c.nome_cliente, c.email, c.cidade, c.estado, c.status_cliente,
-            f.valor_cobranca, f.data_vencimento, f.status_cobranca, 
-            f.tipo_cobranca, f.forma_pagamento, f.data_pagamento
+            -- Dados do Cliente (Dimensão)
+            c.cliente_id, 
+            c.nome_cliente, 
+            c.grupo_economico,   
+            c.email, 
+            c.status_cliente, 
+            c.cidade, 
+            c.estado, 
+            c.data_cadastro,
+            c.data_desativacao,
+
+            -- Dados da Cobrança (Fato)
+            f.cobranca_id,
+            f.valor_cobranca, 
+            f.status_cobranca, 
+            f.tipo_cobranca, 
+            f.forma_pagamento, 
+            f.data_vencimento, 
+            f.data_pagamento,
+            f.criado_em
         FROM tb_cobrancas f
         INNER JOIN tb_clientes c ON f.cliente_id = c.cliente_id;
 
