@@ -160,3 +160,21 @@ def tratar_segmentacao_clientes(df):
         df.loc[:, 'nome_cliente'] = 'Cliente ' + df['cliente_id'].astype(str)
         
     return df
+
+def corrigir_datas_futuras(df):
+    if 'data_desativacao' in df.columns:
+        # 1. Converte e já anula o que for erro (ano 4748) ou futuro
+        # Usamos o 'coerce' para não travar o código
+        datas = pd.to_datetime(df['data_desativacao'], errors='coerce')
+        
+        # 2. Define o limite (Hoje)
+        hoje = pd.Timestamp.now()
+        
+        # 3. Se a data for maior que hoje, vira nulo (NaT)
+        df.loc[datas > hoje, 'data_desativacao'] = pd.NA
+        
+        # 4. Remove o horário transformando em String (YYYY-MM-DD)
+        # O .dt.date é o jeito mais simples de sumir com o 00:00:00
+        df['data_desativacao'] = pd.to_datetime(df['data_desativacao']).dt.date
+            
+    return df

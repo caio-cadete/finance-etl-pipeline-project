@@ -6,9 +6,10 @@ from src.transform.transform_clients import (
     limpar_status_cliente, 
     limpar_localidade,
     anular_ids_duplicados,
-    aplicar_regras_negocio_status
+    aplicar_regras_negocio_status,
+    corrigir_datas_futuras
 )
-from transform.transform_date import tratar_datas_especificas
+from src.transform.transform_date import tratar_datas_especificas
 
 def test_pipeline():
     raw_file = "data/raw/clientes.xlsx"
@@ -36,6 +37,7 @@ def test_pipeline():
                 .pipe(padronizar_emails)
                 .pipe(limpar_status_cliente)
                 .pipe(tratar_datas_especificas, colunas_data=cols_data)
+                .pipe(corrigir_datas_futuras)
                 .pipe(aplicar_regras_negocio_status)
                 .pipe(limpar_localidade)
                 .pipe(anular_ids_duplicados))

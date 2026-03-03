@@ -9,7 +9,8 @@ from src.transform.transform_clients import (
     limpar_localidade,
     remover_duplicados_id,
     aplicar_regras_negocio_status,
-    tratar_segmentacao_clientes
+    tratar_segmentacao_clientes,
+    corrigir_datas_futuras
 )
 from src.transform.transform_date import tratar_datas_especificas
 from src.transform.transform_billings import (
@@ -32,6 +33,7 @@ def pipeline_transform_clientes(df, cols_data):
               .pipe(padronizar_emails)
               .pipe(limpar_status_cliente)
               .pipe(tratar_datas_especificas, colunas_data=cols_data)
+              .pipe(corrigir_datas_futuras)
               .pipe(aplicar_regras_negocio_status)
               .pipe(limpar_localidade)
               .pipe(remover_duplicados_id)
