@@ -94,6 +94,8 @@ O foco aqui é a aplicação de regras de negócio e eliminação de inconsistê
 
 * **Geografia Inteligente**: Possui um motor de correção que identifica cidades e força a UF correta (ex: "Belo Horizonte" sempre será "MG"), eliminando ruídos de localização.
 
+* **Validação Temporal (Data Quality)**: Implementa uma trava de segurança que identifica datas de desativação inconsistentes (como erros de digitação de anos distantes ou datas futuras). A lógica anula automaticamente esses registros, garantindo que os indicadores no Power BI reflitam apenas dados reais e cronológicos.
+
 📅 **Datas (`transform_date.py`)**
 
 * **Motor Híbrido de Conversão**: Resolve um dos problemas mais comuns em ETLs financeiros: a mistura de formatos.
@@ -227,3 +229,53 @@ Para cenários de maior volume de dados ou ambientes corporativos de alta comple
 * **Camada de Testes Unitários**: Inclusão de **Pytest** nas funções de transformação para garantir que novas alterações no código não causem regressões nas regras de negócio.
 
 * **Contenerização (Docker)**: Empacotamento do pipeline em containers para eliminar riscos de conflitos de versão de bibliotecas entre os ambientes de desenvolvimento e produção.
+
+## Estrutura do Dashboard (Power BI)
+
+O projeto foi desenhado com uma interface intuitiva e navegação sequencial, permitindo que o usuário explore os dados de forma lógica através de botões de avanço e recuo entre as camadas de análise.
+
+### 1. Visão Financeira (Performance de Caixa)
+
+Focada no controle de recebimentos e saúde financeira imediata.
+
+* **Indicadores Principais (Cards)**: Faturamento Bruto, Valor em Aberto, Valor Recebido, Inadimplência Total e % de Inadimplência.
+
+* **Evolução Mensal**: Gráfico comparativo entre o faturado e o efetivamente recebido ao longo do tempo.
+
+* **Análise de Status**: Gráfico de rosca detalhando a composição da carteira (Paga, Em Aberto, Inadimplente).
+
+* **Segmentação de Receita**: Faturamento por Grupo Econômico e Inadimplência por Tipo de Cobrança (Mensalidade, Setup, Upsell).
+
+![Visão Financeira](assets/dashboard_financeiro.png)
+
+### 2. Visão do Cliente (Base e Retenção)
+
+Focada no comportamento da carteira e métricas de fidelização.
+
+* **Métricas de Base (Cards)**: Total de Clientes, Clientes Ativos, Clientes Cancelados (Churn) e Ticket Médio por Cliente.
+
+* **Análise de Valor**: Gráfico de Valor Faturado por Cliente e Ranking Top 10 de Inadimplentes.
+
+* **Fluxo de Base**: Gráfico de Entrada vs. Saída de clientes para monitoramento de crescimento líquido.
+
+* **Detalhamento Operacional**: Tabela completa com Nome do Cliente, Data de Desativação e Grupo Econômico, equipada com filtros para análise de inativos.
+
+![Visão Financeira](assets/dashboard_cliente.png)
+
+### 3. Visão Regional (Geografia e Expansão)
+
+Focada na capilaridade de mercado e performance por localidade.
+
+* **Indicadores de Localidade (Cards)**: Qtd. de Cidades Atendidas, Estado com Maior Faturamento, Ticket Médio Local, % de Inadimplência Regional e Concentração de Base (%).
+
+* **Inteligência Geográfica**: Mapa interativo (Estado/Cidade) para visualização da dispersão da base.
+
+* **Performance por UF**: Gráfico de Ranking de faturamento por estado.
+
+* **Matriz de Detalhes**: Tabela cruzada por UF/Estado apresentando Faturamento, Quantidade de Clientes e Percentual de Inadimplência por região.
+
+![Visão Financeira](assets/dashboard_regional.png)
+
+---
+
+**Desenvolvido por Caio Victor Soares Cadete** *Analista de Dados | Graduado em Ciência da Computação*
