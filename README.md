@@ -118,7 +118,7 @@ O foco aqui é a aplicação de regras de negócio e eliminação de inconsistê
 
 ## 🧪 Qualidade e Testes (Auditoria)
 
-Para garantir a confiabilidade das transformações e a integridade dos dados, o projeto utiliza uma camada de **Auditoria Lado a Lado** localizada na pasta `tests_output/` que valida o saneamento e a padronização das informações, assegurando fidelidade total aos dados brutos após transformações.
+Para garantir a confiabilidade das transformações e a integridade dos dados, o projeto utiliza uma camada de **Auditoria Lado a Lado** localizada na pasta `tests/` que valida o saneamento e a padronização das informações, assegurando fidelidade total aos dados brutos após transformações.
 
 Os relatórios de comparação entre os estados **Bronzes** (Dados Brutos) e **Silver** (Dados Tratados) são gerados em `tests_output/`, permitindo uma **validação humana** detalhada da limpeza de nomes, valores monetários e padronização de datas através dos comandos:
 
